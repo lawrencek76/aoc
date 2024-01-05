@@ -4,89 +4,89 @@ fn main() {
     let input = read_input().unwrap();
     //loop over each line in the input and print the first and last number
     let mut sum = 0;
+    let mut powersum = 0;
     for line in input.lines() {
-        let first = find_first_number(&line).unwrap();
-        let last = find_last_number(&line).unwrap();
-        println!("Line: {line} {} {}", first, last);
-        sum = sum + (first*10 + last);
+        let game_result = parse_game_result(&line).unwrap();
+        match is_possible(&game_result, Draw{red: 12, green: 13, blue: 14}) {
+            true => {
+                println!("Possible: {:?}", game_result);
+                sum = sum + game_result.id;
+            }
+            false => {
+                println!("Not Possible: {:?}", game_result);
+            }
+        }
+        powersum = powersum + (game_result.min_cubes.red * game_result.min_cubes.blue * game_result.min_cubes.green);
     }
-    println!("Sum: {}", sum);
+    println!("Sum: {}, PowerSum {}", sum, powersum);
+}
+
+fn is_possible(game_result: &GameResult, max_draw: Draw) -> bool {
+    // foreach reveal check if maxDraw is less than or equal to the reveal
+    for reveal in &game_result.reveal {
+        if max_draw.red < reveal.red || max_draw.blue < reveal.blue || max_draw.green < reveal.green {
+            return false;
+        }
+    }
+    true
 }
 
 fn read_input() -> std::io::Result<String> {
-    fs::read_to_string("./src/input-1")
+    fs::read_to_string("./src/input-2")
 }
 
-// declare a map of substrings to numbers to values
-static NUM_MAP:[(&str, u32); 20] = [
-    ("one", 1),
-    ("two", 2),
-    ("three", 3),
-    ("four", 4),
-    ("five", 5),
-    ("six", 6),
-    ("seven", 7),
-    ("eight", 8),
-    ("nine", 9),
-    ("zero", 0),
-    ("1", 1),
-    ("2", 2),
-    ("3", 3),
-    ("4", 4),
-    ("5", 5),
-    ("6", 6),
-    ("7", 7),
-    ("8", 8),
-    ("9", 9),
-    ("0", 0),
-];
-
-// itereate over each character in a string and find any of a set of substrings
-fn find_first_number(input: &str) -> Option<u32> {
-    let mut result: (Option<usize>, u32) = (None, 0);
-    for s in NUM_MAP {
-        let position = input.find(s.0);
-        if position.is_some() && (result.0.is_none() || position < result.0) {
-            result = (position, s.1);
-        }
-    }
-    if result.0.is_none() {
+fn parse_game_result(line: &str) -> Option<GameResult> {
+    //split the line into a vector of strings on :
+    let parts: Vec<&str> = line.split(":").collect();
+    if parts.len() != 2 {
         return None;
     }
-    Some(result.1)
-}
-
-fn find_last_number(input: &str) -> Option<u32> {
-    let mut result: (Option<usize>, u32) = (None, 0);
-    for s in NUM_MAP {
-        let position = input.rfind(s.0);
-        if position.is_some() && (result.0.is_none() || position > result.0) {
-            result = (position, s.1);
+    let id = parts[0].replace("Game ", "").parse::<i32>().unwrap();
+    let mut game_result = GameResult{id: id, reveal: vec![], min_cubes: Draw{red: 0, blue: 0, green: 0}};
+    //split the second part into a vector of strings on ;
+    let draws: Vec<&str> = parts[1].split(";").collect();
+    for draw in draws {
+        let cubes: Vec<&str> = draw.split(",").collect();
+        let mut draw = Draw{red: 0, blue: 0, green: 0};
+        for cube in cubes {
+             // split on space to get the color and the number
+            let data: Vec<&str> = cube.split_whitespace().collect();
+            let value = data[0].parse::<i32>().unwrap();
+            let name = data[1];
+            // add to reveal
+            if name == "red" {
+                draw.red = value;
+            } else if name == "blue" {
+                draw.blue = value;
+            } else if name == "green" {
+                draw.green = value;
+            }
         }
+        if draw.red > game_result.min_cubes.red {
+            game_result.min_cubes.red = draw.red;
+        }
+        if draw.blue > game_result.min_cubes.blue {
+            game_result.min_cubes.blue = draw.blue;
+        }
+        if draw.green > game_result.min_cubes.green {
+            game_result.min_cubes.green = draw.green;
+        }
+        game_result.reveal.push(draw);
     }
-    if result.0.is_none() {
-        return None;
-    }
-    Some(result.1)
+    
+    Some(game_result)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Debug)]
+struct GameResult {
+    id: i32,
+    reveal: Vec<Draw>,
+    min_cubes: Draw,
+}
 
-    #[test]
-    fn test_find_first_number() {
-        assert_eq!(find_first_number("one"), Some(1));
-        assert_eq!(find_first_number("asas one two three"), Some(1));
-        assert_eq!(find_first_number("1one two three four"), Some(1));
-        assert_eq!(find_first_number("sasdaslkone1"), Some(1));
-    }
-
-    #[test]
-    fn test_find_last_number() {
-        assert_eq!(find_last_number("one"), Some(1));
-        assert_eq!(find_last_number("asas one two three"), Some(3));
-        assert_eq!(find_last_number("1one two three four"), Some(4));
-        assert_eq!(find_last_number("sasdaslkone1"), Some(1));
-    }
+#[derive(Debug)]
+struct Draw {
+    red: i32,
+    blue: i32,
+    green: i32,
 }
